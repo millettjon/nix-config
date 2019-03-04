@@ -1,21 +1,15 @@
 { config, pkgs, ... }:
 { imports = [
     ./hardware-configuration.nix
-    ../../users.nix
-    ../../cloud/programs.nix
-    ../../cloud/networking.nix
+    ../../cli
+    ../../services/zfs.nix
   ];
 
-  services.zfs.autoScrub.enable = true;
-
-  # ZFS
-  # See: https://nixos.wiki/wiki/NixOS_on_ZFS
   boot = {
     loader.grub = {
       enable = true;
       version = 2;
       device = "/dev/vda";
-      zfsSupport = true;
     };
 
     # HACK: Create a symlink to allow nixos init script to find the zfs pool.
@@ -24,10 +18,6 @@
     # On vultr cloud instance, there is no symlink so make one manually.
     initrd.postDeviceCommands = "ln -s /dev/vda3 /dev/disk/by-id/dev-vda3";
 
-    supportedFilesystems = [ "zfs" ];
-    # zfs.enableUnstable = true;
-    zfs.forceImportRoot = true;
-    zfs.forceImportAll = true;
     # kernelParams = ["boot.shell_on_fail"];
   };
 
@@ -35,7 +25,7 @@
   # To get it, run: hexdump /etc/hostid
   networking.hostId = "e3498425";
 
-  time.timeZone = "America/Chicago";
+  time.timeZone = "America/New_York";
 
   system.stateVersion = "18.09";
 }
