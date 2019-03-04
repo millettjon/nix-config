@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+
+MY_HOME="$(cd $(dirname $BASH_SOURCE); pwd)"
+
+set -e
+#set -x
+
+# Get disk to install on.
+DISKS=($(lsblk -o NAME,TYPE --list | grep disk | cut -d ' ' -f 1))
+[[ 1 -ne "${#DISKS[@]}" ]] && {
+    # TODO: Prompt for disk.
+    echo "Exiting since not sure which disk to install on. Disks are: ${DISKS[@]}."
+    exit 1
+}
+DISK="/dev/${DISKS[0]}"
+# TODO: Prompt before proceeding.
+echo "Installing on disk ${DISK}."
+
+# Clean up previous attempt if any.
+{
+    for MOUNT in /mnt{/home,/nix,}; do
+	mountpoint -q "${MOUNT}" && umount "${MOUNT}"
+    done
+
+    if zpool list rpool > /dev/null 2>&1; then
+	zpool destroy rpool
+    fi
+}
+
+# Create partition table.
+sgdisk -Z $DISK
+PART=0
+
+# Create BIOS boot partition. Required for GRUB under BIOS with gpt partition table.
+# See: https://wiki.archlinux.org/index.php/partitioning
+PART=$((PART + 1))
+sgdisk -a1 -n${PART}:34:2047 -t${PART}:EF02 $DISK
+
+# Swap partition.
+PART=$((PART + 1))
+sgdisk -n${PART}:0:+500M -t${PART}:8200 $DISK
+mkswap -L swap $DISK$PART
+#swapon $DISK$PART
+
+# ZFS main partition, use all remaining space.
+PART=$((PART + 1))
+sgdisk -n${PART}:0:0 -t${PART}:BF01 $DISK
+
+zpool create -f -o ashift=12 -o altroot=/mnt -O compression=lz4 rpool $DISK$PART
+
+zfs create -o mountpoint=legacy rpool/root
+zfs create -o mountpoint=legacy rpool/home
+zfs create -o mountpoint=legacy rpool/nix
+
+mkdir -p /mnt
+mount -t zfs rpool/root /mnt
+mkdir /mnt/{home,nix}
+mount -t zfs rpool/home /mnt/home
+mount -t zfs rpool/nix  /mnt/nix
+
+swapon -L swap
+nixos-generate-config --root /mnt
+(cd /mnt/etc/nixos; mv configuration.nix configuration.nix.SAMPLE)
+rsync -a "${MY_HOME}/" /mnt/etc/nixos
+
+# TODO: Prompt for hostname.
+
+# Password prompt can be skipped by running:
+# nixos-install --no-root-passwd
+# It should also be skipped if mutableUsers is set to false.
