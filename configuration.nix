@@ -1,6 +1,6 @@
 let hostname = builtins.replaceStrings [ "\n" ] [ "" ] (builtins.readFile ./hostname);
 in
-{ imports = [ (./machines + "/${hostname}.nix") ];
+{ imports = [ (./hosts + "/${hostname}") ];
 
   networking.hostName = hostname;
 }

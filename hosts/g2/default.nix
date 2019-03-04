@@ -1,9 +1,9 @@
 { config, pkgs, ... }:
 { imports = [
-    ../hardware-configuration.nix
-    ../users.nix
-    ../cloud/programs.nix
-    ../cloud/networking.nix
+    ./hardware-configuration.nix
+    ../../users.nix
+    ../../cloud/programs.nix
+    ../../cloud/networking.nix
   ];
 
   services.zfs.autoScrub.enable = true;
